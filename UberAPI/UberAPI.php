@@ -10,11 +10,6 @@ class UberAPI extends API
         * username : uberappuser
         * db : uberapp
         */
-        $mysqli = new mysqli("localhost", "uberappuser", "ubersecretpass", "uberapp");
-		if ($mysqli->connect_errno) {
-		    echo "Failed to connect to MySQL: (" . $mysqli->connect_errno . ") " . $mysqli->connect_error;
-		}
-		echo $mysqli->host_info . "\n";
     }
 
     /**
@@ -26,33 +21,51 @@ class UberAPI extends API
      */
     protected function locations()
     {
-		$locations = array(
-				array("name"=>"Graham F. Henson","lat"=>"12.63367","lng"=>"123.84274","address"=>"2435 Eu Ave"),
-				array("name"=>"Adele M. Stuart","lat"=>"-45.40987","lng"=>"-31.44555","address"=>"P.O. Box 792, 9320 Volutpat Rd."),
-				array("name"=>"Eve X. Snow","lat"=>"-37.04044","lng"=>"-134.36535","address"=>"6720 Iaculis Rd."),
-				array("name"=>"Jin D. Gomez","lat"=>"-37.62478","lng"=>"141.25152","address"=>"235-8953 Magna. Ave"),
-				array("name"=>"Kimberly Y. Mccullough","lat"=>"39.20517","lng"=>"-88.39943","address"=>"Ap #664-9454 Nisi Ave"),
-				array("name"=>"Kylie J. Martinez","lat"=>"44.01258","lng"=>"116.98117","address"=>"P.O. Box 302, 2212 Faucibus. St."),
-				array("name"=>"Daria W. Gordon","lat"=>"-43.88828","lng"=>"109.87719","address"=>"Ap #905-5965 Curabitur Road")
-			);
+    	$mysqlLink = new mysqli("localhost", "uberappuser", "ubersecretpass", "uberapp");
+		if ($mysqlLink->connect_errno) {
+		    echo "Failed to connect to MySQL: (" . $mysqlLink->connect_errno . ") " . $mysqlLink->connect_error;
+		}
 
         switch ($this->method) {
         	case 'GET':
         		// GET request for a specific ID
 		        if (count($this->args) > 0)
 	        	{
-	        		return $locations[$this->args[0]];
+	        		$query = "SELECT * FROM favlocs WHERE id = '" . $this->args[0] . "'";
+	        		$res = $mysqlLink->query($query);
+	        		$location;
+					if ($row = $res->fetch_assoc()) {
+					    $location = array("id" => $row['id'], "name" => $row['name'], "lat" => $row['lat'], "lng" => $row['lng'], "address" => $row['address']);
+					}
+					$res->free();
+					$mysqlLink->close();
+					return $location;
 	        	}
 	        	else
+	        	{
+	        		$res = $mysqlLink->query("SELECT * FROM favlocs");
+	        		$locations = array();
+					while ($row = $res->fetch_assoc()) {
+					    array_push($locations, array("id" => $row['id'], "name" => $row['name'], "lat" => $row['lat'], "lng" => $row['lng'], "address" => $row['address']));
+					}
 					return $locations;
+	        	}
         		break;
 
         	case 'POST':
-				$location = $_POST;
-	        	// Persist to DB. get last inserted ID.
-	        	$location['id'] = 12;
-                array_push($locations, $location);
-	        	return $location;
+        		$location = null;
+        		$insertID = null;
+
+        		// Generate a UUID from mysql.
+	        	$idRes = $mysqlLink->query($mysqlLink->real_escape_string("SELECT UUID()"));
+	        	if ($idRes)
+	        		$insertID = $idRes->fetch_array()[0];
+
+	        	// insert row using the new UUID
+	        	$query = "INSERT INTO favlocs (id,name,lat,lng,address) VALUES ('". $insertID ."', '".$this->request['name']."', '".$this->request['lat']."', '".$this->request['lng']."', '".$this->request['address']."');";
+	        	if ($mysqlLink->query($query))
+	        		$this->request['id'] = $insertID;
+	        	return $location = $this->request;
         		break;
 
     		case 'PUT':

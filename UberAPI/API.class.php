@@ -31,6 +31,12 @@ abstract class API
     protected $file = Null;
 
     /**
+     * Property: api_verbs
+     * Stores all possible verbs we use in our API.
+     */
+    protected $api_verbs = array("add", "edit");
+
+    /**
      * Constructor: __construct
      * Allow for CORS, assemble and pre-process the data
      */
@@ -41,7 +47,7 @@ abstract class API
 
         $this->args = explode('/', rtrim($request, '/'));
         $this->endpoint = array_shift($this->args);
-        if (array_key_exists(0, $this->args) && !is_numeric($this->args[0])) {
+        if (array_key_exists(0, $this->args) && in_array($this->args[0], $this->api_verbs)) {
             $this->verb = array_shift($this->args);
         }
 
@@ -59,7 +65,7 @@ abstract class API
         switch($this->method) {
         case 'DELETE':
         case 'POST':
-            $this->request = $this->_cleanInputs($_POST);
+            $this->request = $this->_cleanInputs(json_decode(file_get_contents("php://input"), true));
             break;
         case 'GET':
             $this->request = $this->_cleanInputs($_GET);
@@ -93,7 +99,10 @@ abstract class API
                 $clean_input[$k] = $this->_cleanInputs($v);
             }
         } else {
-            $clean_input = trim(strip_tags($data));
+            if (is_string($data))
+                $clean_input = trim(strip_tags($data));
+            else
+                $clean_input = $data;
         }
         return $clean_input;
     }
